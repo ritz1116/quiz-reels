@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/home/runner/work/quiz-reels/quiz-reels/generate_quiz.py", line 169, in <module>
+    main()
+  File "/home/runner/work/quiz-reels/quiz-reels/generate_quiz.py", line 135, in main
+    topic, guidance, needs_source = (next(t for t in TOPICS if t[0] == a.topic) if a.topic else TOPICS[today.toordinal() % len(TOPICS)])
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+StopIteration
