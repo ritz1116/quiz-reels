@@ -1,0 +1,6 @@
+{"category":"Science & Space","title":"Can you score 5/5?","sample":true,"questions":[
+ {"text":"How many hearts does an octopus have?","options":["Two","Three","Four"],"answer":1},
+ {"text":"Which planet is closest to the Sun?","options":["Mercury","Venus","Mars"],"answer":0},
+ {"text":"What is the chemical symbol for gold?","options":["Go","Gd","Au"],"answer":2},
+ {"text":"How many bones does an adult human have?","options":["306","206","106"],"answer":1},
+ {"text":"Which gas do plants take in from the air?","options":["Oxygen","Nitrogen","Carbon dioxide"],"answer":2}]}

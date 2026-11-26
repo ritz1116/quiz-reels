@@ -1,0 +1,38 @@
+name: Test render
+on:
+  push:
+    branches: [main]
+    paths: ["make_video.py", "assets/**", "data/**", "requirements.txt", ".github/workflows/test-render.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: which ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - uses: actions/cache@v4
+        with:
+          path: .kokoro
+          key: kokoro-model-v1
+      - run: python make_video.py data/sample_quiz.json out
+      - run: ffprobe -v error -show_entries stream=codec_name,width,height,r_frame_rate,duration -of default=nw=1 out/quiz.mp4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sample-video
+          path: out/quiz.mp4
+          retention-days: 7
+      - name: Put test output on a branch so it can be inspected
+        run: |
+          mkdir /tmp/pub && cp out/quiz.mp4 out/timings.json /tmp/pub/
+          cd /tmp/pub && git init -q -b test-output
+          git config user.name github-actions && git config user.email actions@github.com
+          git add . && git commit -qm "Test render output"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" test-output

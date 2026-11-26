@@ -1,0 +1,4 @@
+.kokoro/
+out/
+__pycache__/
+*.pyc
