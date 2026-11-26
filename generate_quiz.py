@@ -87,7 +87,7 @@ Rules:
     if failures:
         p += "\nEarlier attempts failed checks; avoid these problems and these topics:\n" + json.dumps(failures[-10:], ensure_ascii=False) + "\n"
     shape = '{"questions":[{"text":"...","options":["...","...","..."],"answer":0}]'
-    if want_caption: shape += ',"caption":"one engaging line, max 120 chars, ends with a question to comment on","hashtags":["#quiz","..."]'
+    if want_caption: shape += ',"caption":"one engaging line, max 120 chars, ends with a question to comment on, never mention a number of questions","hashtags":["#quiz","..."]'
     p += f"\nReturn JSON exactly shaped like: {shape}}}"
     return extract_json(text_of(call(GEN_SYS, p)[0]))
 
@@ -162,7 +162,7 @@ def main():
     if len(good) < 5:
         print(f"FAILED: only {len(good)} verified questions", file=sys.stderr); sys.exit(1)
     final = finalize_order(good, f"{today}-{topic}")
-    quiz = dict(category=topic, title="Can you score 5/5?", questions=final, caption=caption or f"{topic} quiz - how many did you get?",
+    quiz = dict(category=topic, title="Can you score 5/5?", questions=final, caption=(caption if caption and not any(c.isdigit() for c in caption) else f"{topic} quiz - how many did you get? Tell us in the comments!"),
                 hashtags=tags or ["#quiz", "#trivia"], meta=dict(date=str(today), model=MODEL))
     json.dump(quiz, open(os.path.join(a.out, "quiz.json"), "w"), indent=1, ensure_ascii=False)
     if os.environ.get("QUIZ_RECORD") == "1":
