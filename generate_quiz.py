@@ -29,16 +29,22 @@ def get_client():
 
 def call(system, user, tools=None, max_tokens=2500):
     msgs = [{"role": "user", "content": user}]
+    n_search = 0; all_urls = []
     for _ in range(6):
         kw = dict(model=MODEL, max_tokens=max_tokens, system=system, messages=msgs)
         if tools: kw["tools"] = tools
         r = get_client().messages.create(**kw)
         usage["input"] += r.usage.input_tokens; usage["output"] += r.usage.output_tokens
         st = getattr(getattr(r.usage, "server_tool_use", None), "web_search_requests", 0) or 0
-        usage["searches"] += st
+        usage["searches"] += st; n_search += st
+        for b in r.content:
+            if getattr(b, "type", "") == "web_search_tool_result" and isinstance(b.content, list):
+                for it in b.content:
+                    u = getattr(it, "url", None)
+                    if u and u not in all_urls: all_urls.append(u)
         if r.stop_reason == "pause_turn":
             msgs.append({"role": "assistant", "content": r.content}); continue
-        return r
+        return r, n_search, all_urls
     raise RuntimeError("too many pause_turn continuations")
 
 def text_of(r): return "".join(b.text for b in r.content if getattr(b, "type", "") == "text")
@@ -83,26 +89,31 @@ Rules:
     shape = '{"questions":[{"text":"...","options":["...","...","..."],"answer":0}]'
     if want_caption: shape += ',"caption":"one engaging line, max 120 chars, ends with a question to comment on","hashtags":["#quiz","..."]'
     p += f"\nReturn JSON exactly shaped like: {shape}}}"
-    return extract_json(text_of(call(GEN_SYS, p)))
+    return extract_json(text_of(call(GEN_SYS, p)[0]))
 
 VER_SYS = ("You are a strict fact-checker. You will get a multiple-choice question WITHOUT being told the intended answer. "
-           "Decide the correct option yourself. Use web search for factual claims when it helps. If the question is ambiguous, "
-           "two options are defensible, or the premise is disputed, say so. Reply with JSON only: "
-           '{"answer":"A"|"B"|"C"|null,"confidence":"high"|"medium"|"low","source_url":"url or empty","notes":"short"}')
-def verify_one(q, use_search):
+           "Decide the correct option yourself. For factual questions you MUST run at least one web search and base your answer on the results, "
+           "even if you already know the answer. If the question is ambiguous, two options are defensible, or the premise is disputed, say so. "
+           'Reply with JSON only: {"answer":"A"|"B"|"C"|null,"confidence":"high"|"medium"|"low","source_url":"url of a page you found","notes":"short"}')
+def verify_one(q, must_search):
     L = "ABC"; opts = "\n".join(f"{L[i]}) {o}" for i, o in enumerate(q["options"]))
-    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}] if use_search else None
-    r = call(VER_SYS, f"Question: {q['text']}\n{opts}", tools=tools, max_tokens=1500)
+    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]
+    extra = ""
+    for attempt in range(2):
+        r, n, urls = call(VER_SYS, f"Question: {q['text']}\n{opts}{extra}", tools=tools, max_tokens=1500)
+        if n > 0 or not must_search: break
+        extra = "\n\nYou did not run a web search. Run a web search now, then answer."
     j = extract_json(text_of(r)); a = j.get("answer")
     found = L.index(a) if a in ("A", "B", "C") else None
-    src = j.get("source_url") or ""; cites = urls_of(r)
-    if not src and cites: src = cites[0]
-    return dict(found=found, confidence=j.get("confidence", "low"), source=src, notes=j.get("notes", ""), all_sources=cites[:3])
+    retrieved = list(dict.fromkeys(urls_of(r) + urls))
+    src = j.get("source_url") or ""
+    if src not in retrieved: src = retrieved[0] if retrieved else ""   # only accept sources that were really retrieved
+    return dict(found=found, confidence=j.get("confidence", "low"), source=src, searches=n, notes=j.get("notes", ""), all_sources=retrieved[:3])
 
 def passes(q, v, needs_source):
     if v["found"] != q["answer"]: return False, f"verifier chose {v['found']} but intended {q['answer']}: {v['notes']}"
     if v["confidence"] == "low": return False, "verifier confidence low"
-    if needs_source and not v["source"]: return False, "no source found for factual claim"
+    if needs_source and (v.get("searches", 0) < 1 or not v["source"]): return False, "no real web search/source for factual claim"
     return True, ""
 
 def finalize_order(questions, seed):
@@ -140,7 +151,7 @@ def main():
             if norm(q.get("text", "")) in seen or any(norm(q.get("text", "")) == norm(x["text"]) for x in good): errs.append("repeat")
             if errs: failures.append(f"{q.get('text')}: {'; '.join(errs)}"); log.append(dict(round=rnd, text=q.get("text"), ok=False, reason="; ".join(errs))); continue
             cands.append(q)
-        with ThreadPoolExecutor(4) as ex: vs = list(ex.map(lambda q: verify_one(q, needs_source or True), cands))
+        with ThreadPoolExecutor(4) as ex: vs = list(ex.map(lambda q: verify_one(q, needs_source), cands))
         for q, v in zip(cands, vs):
             ok, why = passes(q, v, needs_source)
             log.append(dict(round=rnd, text=q["text"], intended=q["answer"], ok=ok, reason=why, **v))
