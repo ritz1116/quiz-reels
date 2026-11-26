@@ -11,7 +11,7 @@ import anthropic
 
 MODEL = os.environ.get("QUIZ_MODEL", "claude-sonnet-5-5")
 HERE = os.path.dirname(os.path.abspath(__file__))
-E="Easy to medium difficulty, well-known facts a school student could know. ALL five questions must be about this ONE subject only."
+E="Difficulty: 2 easy + 3 medium questions. Medium means a school student has to think a little; NOT trivially obvious (no 2+2, no colour of the sky). Wrong options must be plausible. ALL five questions must be about this ONE subject only."
 TOPICS = [
     ("Geography", "countries, capitals, oceans, continents, rivers, mountains, flags. "+E, True),
     ("English Vocabulary", "word meanings, opposites, synonyms, everyday words. Unambiguous, American English. "+E, False),
@@ -24,8 +24,8 @@ TOPICS = [
     ("Human Body", "organs, bones, senses, health basics. "+E, True),
     ("Famous Firsts & Inventions", "who invented what, famous firsts, landmarks, world records that will not change. "+E, True),
 ]
-# one subject per video; the subject changes every 2 days
-def pick_topic(d): return TOPICS[(d.toordinal() // 2) % len(TOPICS)]
+# one subject per video; the subject changes every day
+def pick_topic(d): return TOPICS[d.toordinal() % len(TOPICS)]
 usage = dict(input=0, output=0, searches=0)
 client = None
 

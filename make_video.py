@@ -7,7 +7,7 @@ Voice: Kokoro (free, local). Visuals: Pillow. Encoding: ffmpeg.
 import sys, os, json, math, subprocess, wave, urllib.request
 import numpy as np
 import soundfile as sf
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SANS = os.path.join(HERE, "assets", "fonts", "DMSans[opsz,wght].ttf")
@@ -56,8 +56,8 @@ def font(path, size, w):
         except Exception: pass
         _fc[key] = f
     return _fc[key]
-QF = lambda: font(SANS, 58, 700)
-OF = lambda: font(SANS, 54, 500)
+QF = lambda: font(SANS, 60, 700)
+OF = lambda: font(SANS, 56, 600)
 
 def wrap(text, f, maxw):
     lines, cur = [], ""
@@ -69,35 +69,61 @@ def wrap(text, f, maxw):
 
 def ease(u): u = max(0, min(1, u)); return u * u * (3 - 2 * u)
 
+# (background top, background bottom, accent)  one palette per subject, so each day looks different
+PALETTES = [((38, 30, 110), (120, 52, 170), (255, 170, 40)), ((10, 70, 120), (20, 150, 160), (255, 205, 60)),
+            ((120, 25, 70), (220, 80, 80), (255, 215, 90)), ((20, 90, 70), (60, 170, 110), (255, 140, 60)),
+            ((30, 50, 130), (70, 120, 220), (255, 120, 140)), ((90, 40, 130), (200, 70, 150), (90, 220, 200))]
+BADGE = [(255, 99, 99), (60, 140, 255), (255, 176, 32)]
+CX0, CX1 = 44, W - 44          # card edges
+TX = 92                         # question text x
+RH, RS = 102, 118              # option row height / step
+
+def palette_for(cat): return PALETTES[sum(map(ord, cat)) % len(PALETTES)]
+
 class Worksheet:
     def __init__(self, quiz, events):
         self.quiz, self.ev, self.qs = quiz, events, quiz["questions"]
-        y, self.blk = 300, []
+        self.pal = palette_for(quiz["category"])
+        y, self.blk = 330, []
         for i, q in enumerate(self.qs):
-            b = dict(top=y, qlines=[], opts=[])
-            for l in wrap(f"{i+1} ) {q['text']}", QF(), 930):
+            b = dict(top=y, qlines=[], opts=[]); y += 122
+            for l in wrap(q["text"], QF(), 890):
                 b["qlines"].append((l, y)); y += 86
-            y += 18
+            y += 22
             for o in q["options"]:
-                b["opts"].append((o, y)); y += 88
-            y += 64; self.blk.append(b)
+                b["opts"].append((o, y)); y += RS
+            b["bottom"] = y - (RS - RH) + 34; y = b["bottom"] + 52; self.blk.append(b)
         ph = max(H, y + 40); self.ph = ph
-        rng = np.random.default_rng(3)
-        arr = np.full((ph, W, 3), PAPER, dtype=np.int16) + rng.integers(-3, 4, (ph, W, 1)).astype(np.int16)
-        im = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)); d = ImageDraw.Draw(im)
-        d.text((W // 2, 95), quiz["category"].upper(), font=font(SERIF, 88, 700), fill=INK, anchor="mm")
-        d.text((W // 2, 185), quiz.get("title", "Can you score 5/5?"), font=font(SANS, 46, 500), fill=GREY, anchor="mm")
-        d.line([(70, 240), (W - 70, 240)], fill=(200, 200, 205), width=3)
-        for b in self.blk:
-            for l, ly in b["qlines"]: d.text((70, ly), l, font=QF(), fill=INK)
-            for o, oy in b["opts"]:
-                d.ellipse((74, oy + 6, 118, oy + 50), outline=INK, width=4)
-                d.text((150, oy), o, font=OF(), fill=INK)
-        self.page = im; maxs = ph - H
+        c1, c2, acc = self.pal
+        t = np.linspace(0, 1, ph)[:, None, None]
+        arr = (np.array(c1)[None, None, :] * (1 - t) + np.array(c2)[None, None, :] * t) * np.ones((1, W, 1))
+        im = Image.fromarray(arr.astype(np.uint8)).convert("RGBA")
+        sh = Image.new("RGBA", (W, ph), (0, 0, 0, 0)); sd = ImageDraw.Draw(sh)
+        for b in self.blk: sd.rounded_rectangle((CX0 + 4, b["top"] + 12, CX1 + 4, b["bottom"] + 12), radius=44, fill=(0, 0, 0, 70))
+        im = Image.alpha_composite(im, sh.filter(ImageFilter.GaussianBlur(14))); d = ImageDraw.Draw(im)
+        # header banner
+        hv = Image.new("RGBA", (W, ph), (0, 0, 0, 0)); ImageDraw.Draw(hv).rounded_rectangle((CX0, 44, CX1, 262), radius=44, fill=(0, 0, 0, 70), outline=(255, 255, 255, 160), width=3)
+        im = Image.alpha_composite(im, hv); d = ImageDraw.Draw(im)
+        cat = quiz["category"].upper(); fs = 96
+        while font(SANS, fs, 800).getlength(cat) > 900: fs -= 4
+        d.text((W // 2, 128), cat, font=font(SANS, fs, 800), fill=(255, 255, 255), anchor="mm")
+        d.text((W // 2, 215), "5 QUESTIONS  \u2022  CAN YOU SCORE 5/5?", font=font(SANS, 38, 700), fill=acc, anchor="mm")
+        for i, b in enumerate(self.blk):
+            d.rounded_rectangle((CX0, b["top"], CX1, b["bottom"]), radius=44, fill=(255, 255, 255))
+            d.rounded_rectangle((CX0 + 36, b["top"] + 30, CX0 + 36 + 300, b["top"] + 92), radius=31, fill=c1)
+            d.text((CX0 + 36 + 150, b["top"] + 61), f"QUESTION {i+1}/5", font=font(SANS, 34, 800), fill=(255, 255, 255), anchor="mm")
+            for l, ly in b["qlines"]: d.text((TX, ly), l, font=QF(), fill=INK)
+            for k, (o, oy) in enumerate(b["opts"]):
+                d.rounded_rectangle((CX0 + 32, oy, CX1 - 32, oy + RH), radius=30, fill=(243, 245, 252), outline=(214, 219, 235), width=3)
+                bc = BADGE[k]; cx, cy = CX0 + 32 + 58, oy + RH // 2
+                d.ellipse((cx - 36, cy - 36, cx + 36, cy + 36), fill=bc)
+                d.text((cx, cy - 2), "ABC"[k], font=font(SANS, 44, 800), fill=(255, 255, 255), anchor="mm")
+                d.text((CX0 + 32 + 124, cy - 2), o, font=OF(), fill=INK, anchor="lm")
+        self.page = im.convert("RGB"); maxs = ph - H
         self.keys = [(0.0, 0.0)]
         for e in events:
             if e["kind"] == "question":
-                self.keys.append((max(0, e["start"] - 0.25), max(0, min(maxs, self.blk[e["q"]]["top"] - 300))))
+                self.keys.append((max(0, e["start"] - 0.25), max(0, min(maxs, self.blk[e["q"]]["top"] - 330))))
 
     def cam(self, t):
         pos = self.keys[0][1]
@@ -129,8 +155,8 @@ class Worksheet:
             if e["kind"] == "answer":
                 o, oy = b["opts"][self.qs[e["q"]]["answer"]]; y0 = oy - c
                 a = ease((t - e["start"]) / 0.3)
-                od.rounded_rectangle((70, y0 - 4, W - 70, y0 + 74), radius=14, fill=(60, 200, 120, int(95 * a)))
-                solid.append(("tick", e["start"], y0))
+                od.rounded_rectangle((CX0 + 32, y0, CX1 - 32, y0 + RH), radius=30, fill=(46, 204, 113, int(235 * a)))
+                solid.append(("tick", e["start"], y0, o))
             else: solid.append(("ul", e, b, c))
         im = Image.alpha_composite(im, ov).convert("RGB"); d = ImageDraw.Draw(im)
         for s in solid:
@@ -139,18 +165,22 @@ class Worksheet:
                 p_all = (t - e["start"]) / (e["end"] - e["start"] - 0.05)
                 for li, (l, ly) in enumerate(b["qlines"]):
                     share = len(l) / tot; p = (p_all - cum) / share; cum += share
-                    x1 = 70 + QF().getlength(l); y = ly - cc + 68
-                    pts = [(70 + (x1 - 70) * k / 40, y + 3.5 * math.sin(k * 0.7 + li * 2.0)) for k in range(41)]
+                    x1 = TX + QF().getlength(l); y = ly - cc + 70
+                    pts = [(TX + (x1 - TX) * k / 40, y + 3.5 * math.sin(k * 0.7 + li * 2.0)) for k in range(41)]
                     self._poly(d, pts, p, RED, 9)
             else:
-                _, st, y0 = s; cx, cy = 96, y0 + 28
-                self._poly(d, [(cx - 26, cy + 2), (cx - 6, cy + 28), (cx + 36, cy - 34)], (t - st) / 0.4, GREEN, 14)
+                _, st, y0, otxt = s; cy = y0 + RH // 2
+                d.ellipse((CX0 + 32 + 58 - 36, cy - 36, CX0 + 32 + 58 + 36, cy + 36), fill=(255, 255, 255))
+                d.text((CX0 + 32 + 58, cy - 2), "ABC"[self.qs[[x["q"] for x in self.ev if x["kind"] == "answer" and x["start"] == st][0]]["answer"]], font=font(SANS, 44, 800), fill=(24, 150, 84), anchor="mm")
+                d.text((CX0 + 32 + 124, cy - 2), otxt, font=OF(), fill=(255, 255, 255), anchor="lm")
+                cx = W - 130
+                self._poly(d, [(cx - 30, cy + 2), (cx - 8, cy + 26), (cx + 34, cy - 30)], (t - st) / 0.4, (255, 255, 255), 16)
         for e in self.ev:
             if e["kind"] == "think" and e["start"] <= t < e["end"]:
-                mid = self.blk[e["q"]]["opts"][1][1] - c + 36; cx, r = 900, 78; el = t - e["start"]
-                d.ellipse((cx - r, mid - r, cx + r, mid + r), fill=(255, 255, 255), outline=(210, 212, 218), width=10)
-                d.arc((cx - r, mid - r, cx + r, mid + r), -90, -90 + 360 * (1 - el / 2.0), fill=RED, width=12)
-                d.text((cx, mid - 4), "2" if el < 1 else "1", font=font(SANS, 92, 800), fill=INK, anchor="mm")
+                mid = self.blk[e["q"]]["top"] - c + 61; cx, r = 880, 46; el = t - e["start"]
+                d.ellipse((cx - r, mid - r, cx + r, mid + r), fill=(255, 255, 255), outline=(225, 228, 238), width=8)
+                d.arc((cx - r, mid - r, cx + r, mid + r), -90, -90 + 360 * (1 - el / 2.0), fill=RED, width=10)
+                d.text((cx, mid - 2), "2" if el < 1 else "1", font=font(SANS, 58, 800), fill=INK, anchor="mm")
         return im
 
 # ---------------- audio mix (voice + light music + sfx) ----------------
