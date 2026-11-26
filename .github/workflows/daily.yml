@@ -1,0 +1,49 @@
+name: daily-quiz
+on:
+  schedule:
+    - cron: "30 2 * * *"   # 08:00 IST every day
+  workflow_dispatch:
+  push:
+    paths: [".github/workflows/daily.yml"]
+permissions:
+  contents: write
+concurrency: daily-quiz
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: pip install -r requirements.txt
+      - uses: actions/cache@v4
+        with: { path: .kokoro, key: kokoro-v1 }
+      - name: Generate and verify quiz
+        run: |
+          if [ "${{ github.event_name }}" != "push" ]; then export QUIZ_RECORD=1; fi
+          python generate_quiz.py --out out
+      - name: Render video
+        run: python make_video.py out/quiz.json out
+      - name: Publish for review (GitHub release)
+        run: |
+          D=$(date -u +%F); [ "${{ github.event_name }}" = "push" ] && D="test-$D-${{ github.run_number }}"
+          TAG="quiz-$D"
+          python - <<'PY'
+          import json
+          q=json.load(open("out/quiz.json"))
+          lines=[f"Category: {q['category']}","",q["caption"]," ".join(q.get("hashtags") or []),""]
+          for i,x in enumerate(q["questions"],1): lines.append(f"{i}. {x['text']}  ->  {x['options'][x['answer']]}")
+          open("out/notes.md","w").write("\n".join(lines))
+          PY
+          gh release create "$TAG" out/quiz.mp4 out/quiz.json out/verification.json --title "$TAG" --notes-file out/notes.md
+          echo "Video: https://github.com/${{ github.repository }}/releases/download/$TAG/quiz.mp4"
+      - name: Save history
+        if: github.event_name != 'push'
+        run: |
+          git config user.name quiz-reels-bot; git config user.email bot@users.noreply.github.com
+          git add data/history.json; git commit -m "history $(date -u +%F)" || exit 0; git push

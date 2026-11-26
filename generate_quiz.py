@@ -12,12 +12,8 @@ import anthropic
 MODEL = os.environ.get("QUIZ_MODEL", "claude-sonnet-5-5")
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOPICS = [
-    ("General Knowledge", "simple, well-known facts: geography, history, everyday world knowledge, famous firsts.", True),
-    ("Science & Space", "simple science and astronomy facts taught in school; planets, human body, animals, chemistry basics.", True),
-    ("Psychology & Human Behaviour", "ONLY well-established, non-controversial psychology findings and terms (e.g. named biases, memory, sleep). Avoid pop-psychology myths and anything disputed or replication-crisis related.", True),
-    ("Technology & AI", "simple technology, internet, computing and AI facts that will not change soon; avoid anything time-sensitive.", True),
-    ("Brain Teasers & Logic (Cognitive)", "simple riddles, number sequences, odd-one-out, easy logic. Each must have exactly ONE unambiguous answer that can be solved by reasoning alone.", False),
-    ("English (Grammar, Spelling, Vocabulary)", "unambiguous English: correct spelling, correct word choice (their/there), word meanings, common mistakes. Use American English and avoid anything where British/American usage differs.", False),
+    ("General Knowledge", "a MIX across different areas in one quiz: basic maths, science, geography, history, animals, human body, space, world facts, famous firsts. Easy to medium difficulty, well-known facts that a school student could know. No two questions from the same area.", True),
+    ("Basic English", "unambiguous basic English: correct spelling, correct word choice (their/there, your/you're), word meanings, opposites/synonyms, common grammar mistakes. Easy to medium. Use American English and avoid anything where British/American usage differs.", False),
 ]
 usage = dict(input=0, output=0, searches=0)
 client = None
