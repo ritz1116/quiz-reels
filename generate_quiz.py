@@ -11,10 +11,21 @@ import anthropic
 
 MODEL = os.environ.get("QUIZ_MODEL", "claude-sonnet-5-5")
 HERE = os.path.dirname(os.path.abspath(__file__))
+E="Easy to medium difficulty, well-known facts a school student could know. ALL five questions must be about this ONE subject only."
 TOPICS = [
-    ("General Knowledge", "a MIX across different areas in one quiz: basic maths, science, geography, history, animals, human body, space, world facts, famous firsts. Easy to medium difficulty, well-known facts that a school student could know. No two questions from the same area.", True),
-    ("Basic English", "unambiguous basic English: correct spelling, correct word choice (their/there, your/you're), word meanings, opposites/synonyms, common grammar mistakes. Easy to medium. Use American English and avoid anything where British/American usage differs.", False),
+    ("Geography", "countries, capitals, oceans, continents, rivers, mountains, flags. "+E, True),
+    ("English Vocabulary", "word meanings, opposites, synonyms, everyday words. Unambiguous, American English. "+E, False),
+    ("Science", "school science: physics, chemistry, biology basics, everyday science. "+E, True),
+    ("Maths", "mental arithmetic, tables, fractions, percentages, shapes, simple number facts. Each answer must be exactly computable. "+E, False),
+    ("History", "famous events, people, inventions, ancient civilisations; avoid disputed dates. "+E, True),
+    ("English Grammar & Spelling", "correct spelling, their/there, your/you're, tenses, common mistakes. Unambiguous, American English. "+E, False),
+    ("Animals & Nature", "animals, birds, ocean life, plants, nature records. "+E, True),
+    ("Space", "planets, the Sun, Moon, stars, famous space missions. "+E, True),
+    ("Human Body", "organs, bones, senses, health basics. "+E, True),
+    ("Famous Firsts & Inventions", "who invented what, famous firsts, landmarks, world records that will not change. "+E, True),
 ]
+# one subject per video; the subject changes every 2 days
+def pick_topic(d): return TOPICS[(d.toordinal() // 2) % len(TOPICS)]
 usage = dict(input=0, output=0, searches=0)
 client = None
 
@@ -132,7 +143,7 @@ def main():
     ap.add_argument("--history", default=os.path.join(HERE, "data", "history.json")); a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     today = datetime.date.today()
-    topic, guidance, needs_source = (next(t for t in TOPICS if t[0] == a.topic) if a.topic else TOPICS[today.toordinal() % len(TOPICS)])
+    topic, guidance, needs_source = (next(t for t in TOPICS if t[0] == a.topic) if a.topic else pick_topic(today))
     history = json.load(open(a.history)) if os.path.exists(a.history) else []
     seen = {norm(h) for h in history}
     good, failures, log, caption, tags = [], [], [], None, None
