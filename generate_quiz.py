@@ -1,5 +1,5 @@
 """Generate and verify one 5-question quiz with the Claude API.
-# (re-run trigger after secret added)
+# (re-run trigger: credits added)
 
 Usage: python generate_quiz.py --out out_dir [--topic "Science & Space"]
 Needs env ANTHROPIC_API_KEY. Writes out_dir/quiz.json (renderer input) and out_dir/verification.json.
