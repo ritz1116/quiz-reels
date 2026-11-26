@@ -1,0 +1,47 @@
+name: Test generate
+on:
+  push:
+    branches: [main]
+    paths: ["generate_quiz.py", ".github/workflows/test-generate.yml"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  gen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install anthropic
+      - name: Is the secret set?
+        shell: bash
+        run: if [ -z "$ANTHROPIC_API_KEY" ]; then echo "SECRET_MISSING"; else echo "secret is set"; fi
+      - name: Generate Science and Space quiz
+        id: sci
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p out
+          python generate_quiz.py --topic "Science & Space" --out out/science 2>&1 | tee out/science.log
+      - name: Generate English quiz
+        id: eng
+        continue-on-error: true
+        shell: bash
+        run: |
+          python generate_quiz.py --topic "English (Grammar, Spelling, Vocabulary)" --out out/english 2>&1 | tee out/english.log
+      - name: Publish results to a branch so they can be inspected
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p out /tmp/pub && cp -r out/. /tmp/pub/
+          echo "{\"secret_set\":\"$([ -n "$ANTHROPIC_API_KEY" ] && echo yes || echo no)\",\"science\":\"${{ steps.sci.outcome }}\",\"english\":\"${{ steps.eng.outcome }}\"}" > /tmp/pub/status.json
+          cd /tmp/pub && git init -q -b test-generate
+          git config user.name github-actions && git config user.email actions@github.com
+          git add . && git commit -qm "Test generate output"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" test-generate
