@@ -1,0 +1,100 @@
+{
+ "events": [
+  {
+   "kind": "question",
+   "start": 0.4,
+   "end": 2.725,
+   "q": 0
+  },
+  {
+   "kind": "think",
+   "start": 3.025,
+   "end": 5.025,
+   "q": 0
+  },
+  {
+   "kind": "answer",
+   "start": 5.025,
+   "end": 6.412,
+   "q": 0
+  },
+  {
+   "kind": "question",
+   "start": 7.512,
+   "end": 9.795,
+   "q": 1
+  },
+  {
+   "kind": "think",
+   "start": 10.095,
+   "end": 12.095,
+   "q": 1
+  },
+  {
+   "kind": "answer",
+   "start": 12.095,
+   "end": 13.695,
+   "q": 1
+  },
+  {
+   "kind": "question",
+   "start": 14.795,
+   "end": 17.013,
+   "q": 2
+  },
+  {
+   "kind": "think",
+   "start": 17.313,
+   "end": 19.313,
+   "q": 2
+  },
+  {
+   "kind": "answer",
+   "start": 19.313,
+   "end": 20.636,
+   "q": 2
+  },
+  {
+   "kind": "question",
+   "start": 21.736,
+   "end": 24.211,
+   "q": 3
+  },
+  {
+   "kind": "think",
+   "start": 24.511,
+   "end": 26.511,
+   "q": 3
+  },
+  {
+   "kind": "answer",
+   "start": 26.511,
+   "end": 28.495,
+   "q": 3
+  },
+  {
+   "kind": "question",
+   "start": 29.595,
+   "end": 32.005,
+   "q": 4
+  },
+  {
+   "kind": "think",
+   "start": 32.305,
+   "end": 34.305,
+   "q": 4
+  },
+  {
+   "kind": "answer",
+   "start": 34.305,
+   "end": 36.46,
+   "q": 4
+  },
+  {
+   "kind": "outro",
+   "start": 37.56,
+   "end": 40.163
+  }
+ ],
+ "total": 40.863
+}
