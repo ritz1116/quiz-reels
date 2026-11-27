@@ -15,6 +15,7 @@ SERIF = os.path.join(HERE, "assets", "fonts", "Gelasio[wght].ttf")
 MODEL_DIR = os.environ.get("KOKORO_DIR", os.path.join(HERE, ".kokoro"))
 MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
 VOICE = os.environ.get("QUIZ_VOICE", "am_michael")
+TIGHT = os.environ.get("QUIZ_TIGHT") == "1"
 W, H, FPS, TSR = 1080, 1920, 30, 24000
 PAPER = (255, 255, 255); INK = (24, 28, 40); GREY = (110, 114, 124); RED = (214, 48, 48); GREEN = (24, 150, 84)
 
@@ -32,7 +33,7 @@ def narrate(quiz):
     from kokoro_onnx import Kokoro
     k = Kokoro(*ensure_models())
     def say(t):
-        s, sr = k.create(t, voice=VOICE, speed=1.0, lang="en-us"); assert sr == TSR; return s.astype(np.float32)
+        s, sr = k.create(t, voice=VOICE, speed=float(os.environ.get("QUIZ_SPEED", "1.0")), lang="en-us"); assert sr == TSR; return s.astype(np.float32)
     chunks, ev, t = [], [], [0.0]
     def sil(d): chunks.append(np.zeros(int(d * TSR), dtype=np.float32)); t[0] += d
     def add(kind, text, **kw):
@@ -40,9 +41,9 @@ def narrate(quiz):
         ev.append(dict(kind=kind, start=round(t[0], 3), end=round(t[0] + d, 3), **kw)); chunks.append(s); t[0] += d
     sil(0.4)
     for i, q in enumerate(quiz["questions"]):
-        add("question", q["text"], q=i); sil(0.3)
+        add("question", q["text"], q=i); sil(0.2 if TIGHT else 0.3)
         ev.append(dict(kind="think", start=round(t[0], 3), end=round(t[0] + 2.0, 3), q=i)); sil(2.0)
-        add("answer", f"The answer is {q['options'][q['answer']]}!", q=i); sil(1.1)
+        add("answer", f"The answer is {q['options'][q['answer']]}!", q=i); sil(0.6 if TIGHT else 1.1)
     add("outro", "How many did you get? Comment your score!"); sil(0.7)
     return np.concatenate(chunks), ev, round(t[0], 3)
 
