@@ -24,7 +24,7 @@ jobs:
       - name: Make one video per topic (nothing is posted)
         run: |
           i=0
-          while IFS= read -r T; do
+          while IFS= read -r -u 3 T; do
             [ -z "$T" ] && continue
             i=$((i+1)); D="out/$i"
             if python generate_quiz.py --out "$D" --topic "$T" && python make_video.py "$D/quiz.json" "$D"; then
@@ -39,4 +39,4 @@ jobs:
             else
               echo "FAILED topic: $T"
             fi
-          done < special_topics.txt
+          done 3< special_topics.txt
