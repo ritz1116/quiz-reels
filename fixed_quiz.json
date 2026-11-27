@@ -1,0 +1,64 @@
+{
+ "category": "Current Affairs",
+ "title": "Can you score 5/5?",
+ "questions": [
+  {
+   "text": "Who won men's Asian Games cricket gold in Oct 2026?",
+   "options": [
+    "Pakistan",
+    "India",
+    "Sri Lanka"
+   ],
+   "answer": 1
+  },
+  {
+   "text": "Which company released GPT-6.2 Astra in Nov 2026?",
+   "options": [
+    "OpenAI",
+    "Anthropic",
+    "Google"
+   ],
+   "answer": 0
+  },
+  {
+   "text": "How much revenue did Nvidia report on 17 Nov 2026?",
+   "options": [
+    "$81.6 billion",
+    "$96.2 billion",
+    "$115.8 billion"
+   ],
+   "answer": 2
+  },
+  {
+   "text": "Which model did Google launch on 18 Nov 2026?",
+   "options": [
+    "Gemini 4 Neon",
+    "Qwen4-Max",
+    "GPT-6.2 Sol"
+   ],
+   "answer": 0
+  },
+  {
+   "text": "Who hit 133 in England's Hobart ODI win?",
+   "options": [
+    "Ben Duckett",
+    "Harry Brook",
+    "Joe Root"
+   ],
+   "answer": 0
+  }
+ ],
+ "caption": "Think you're up to date with the latest news? Tell us your score in the comments!",
+ "hashtags": [
+  "#currentaffairs",
+  "#news",
+  "#quiz",
+  "#AI",
+  "#Nvidia",
+  "#cricket"
+ ],
+ "meta": {
+  "date": "2026-11-27",
+  "model": "claude-sonnet-5-5"
+ }
+}

@@ -1,0 +1,25 @@
+name: render-fixed
+on:
+  workflow_dispatch:
+  push:
+    paths: ["fixed_quiz.json", ".github/workflows/render-fixed.yml"]
+permissions:
+  contents: write
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: pip install -r requirements.txt
+      - uses: actions/cache@v4
+        with: { path: .kokoro, key: kokoro-v1 }
+      - name: Render the prepared quiz (nothing is posted)
+        run: |
+          python make_video.py fixed_quiz.json out
+          gh release create "fixed-${{ github.run_number }}" out/quiz.mp4 --title "fixed-${{ github.run_number }}" --notes "Rendered from fixed_quiz.json"
