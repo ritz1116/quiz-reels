@@ -25,6 +25,9 @@ TOPICS = [
     ("Famous Firsts & Inventions", "who invented what, famous firsts, landmarks, world records that will not change. "+E, True),
 ]
 # one subject per video; the subject changes every day
+# special topics: never in the daily rotation, only used with --topic
+CURRENT_AFFAIRS = "World Current Affairs"
+SPECIAL = [(CURRENT_AFFAIRS, "notable recent world events from roughly the last 8 weeks that you FIND VIA WEB SEARCH: international summits and agreements, sports finals and records, major awards, space and science milestones, technology and business milestones, cultural events. Easy to medium, neutral, factual.", True)]
 def pick_topic(d): return TOPICS[d.toordinal() % len(TOPICS)]
 usage = dict(input=0, output=0, searches=0)
 client = None
@@ -69,7 +72,7 @@ def extract_json(t):
 
 def norm(s): return re.sub(r"[^a-z0-9 ]", "", s.lower()).strip()
 
-def validate(q):
+def validate(q, current=False):
     errs = []; t = (q.get("text") or "").strip(); o = q.get("options"); a = q.get("answer")
     if not t or len(t) > 75: errs.append("question missing or longer than 75 characters")
     if not isinstance(o, list) or len(o) != 3 or any((not isinstance(x, str)) or not x.strip() or len(x) > 22 for x in o):
@@ -77,26 +80,33 @@ def validate(q):
     elif len({norm(x) for x in o}) != 3: errs.append("duplicate options")
     elif any(re.search(r"all of the above|none of the above|\bboth\b", x, re.I) for x in o): errs.append("banned option wording")
     if a not in (0, 1, 2): errs.append("answer must be 0, 1 or 2")
-    if re.search(r"\b(current|currently|latest|newest|most recent|today|this year|right now)\b", t, re.I): errs.append("time-sensitive wording")
+    if not current and re.search(r"\b(current|currently|latest|newest|most recent|today|this year|right now)\b", t, re.I): errs.append("time-sensitive wording")
     return errs
 
 GEN_SYS = "You write simple, accurate multiple-choice quiz questions for short vertical videos. Reply with JSON only."
 def generate(topic, guidance, n, avoid, failures, want_caption):
+    cur = topic == CURRENT_AFFAIRS
     p = f"""Write {n} multiple-choice questions for the category: {topic}.
 Style: {guidance}
 Rules:
 - Each question has exactly 3 options and exactly one clearly correct answer. "answer" is the 0-based index of the correct option.
 - Question text at most 70 characters. Each option at most 18 characters.
-- Easy to medium difficulty, ordered easy first. Questions must be about stable facts (no 'current', 'latest', 'today').
+- Easy to medium difficulty, ordered easy first. {'Questions are about recent news (see below).' if cur else "Questions must be about stable facts (no 'current', 'latest', 'today')."}
 - No 'all of the above', no 'both'. Do not repeat or closely paraphrase any of these existing questions:
 {json.dumps(avoid[-80:], ensure_ascii=False)}
 """
+    if cur:
+        p += (f"\nToday is {datetime.date.today()}. USE WEB SEARCH to find real news from the last ~8 weeks, then write questions only about events you found. "
+              "Each question must name its month and year (for example 'In Nov 2026, ...') or otherwise be unambiguous, with exactly one correct answer confirmed by a reputable news source. "
+              "STRICT: neutral facts only. No election winners, no party politics, no opinions, no wars, casualties, crimes, deaths or disasters, no unconfirmed or disputed claims, nothing a reasonable source disagrees on. "
+              "Prefer summits, sports finals, awards, space/science, technology and business milestones, international agreements, culture.\n")
     if failures:
         p += "\nEarlier attempts failed checks; avoid these problems and these topics:\n" + json.dumps(failures[-10:], ensure_ascii=False) + "\n"
     shape = '{"questions":[{"text":"...","options":["...","...","..."],"answer":0}]'
     if want_caption: shape += ',"caption":"one engaging line, max 120 chars, ends with a question to comment on, never mention a number of questions","hashtags":["#quiz","..."]'
     p += f"\nReturn JSON exactly shaped like: {shape}}}"
-    return extract_json(text_of(call(GEN_SYS, p)[0]))
+    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 6}] if cur else None
+    return extract_json(text_of(call(GEN_SYS, p, tools=tools, max_tokens=4000)[0]))
 
 VER_SYS = ("You are a strict fact-checker. You will get a multiple-choice question WITHOUT being told the intended answer. "
            "Decide the correct option yourself. For factual questions you MUST run at least one web search and base your answer on the results, "
@@ -117,9 +127,9 @@ def verify_one(q, must_search):
     if src not in retrieved: src = retrieved[0] if retrieved else ""   # only accept sources that were really retrieved
     return dict(found=found, confidence=j.get("confidence", "low"), source=src, searches=n, notes=j.get("notes", ""), all_sources=retrieved[:3])
 
-def passes(q, v, needs_source):
+def passes(q, v, needs_source, current=False):
     if v["found"] != q["answer"]: return False, f"verifier chose {v['found']} but intended {q['answer']}: {v['notes']}"
-    if v["confidence"] == "low": return False, "verifier confidence low"
+    if v["confidence"] == "low" or (current and v["confidence"] != "high"): return False, f"verifier confidence {v['confidence']}"
     if needs_source and (v.get("searches", 0) < 1 or not v["source"]): return False, "no real web search/source for factual claim"
     return True, ""
 
@@ -143,7 +153,8 @@ def main():
     ap.add_argument("--history", default=os.path.join(HERE, "data", "history.json")); a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     today = datetime.date.today()
-    topic, guidance, needs_source = (next(t for t in TOPICS if t[0] == a.topic) if a.topic else pick_topic(today))
+    topic, guidance, needs_source = (next(t for t in TOPICS + SPECIAL if t[0] == a.topic) if a.topic else pick_topic(today))
+    current = topic == CURRENT_AFFAIRS
     history = json.load(open(a.history)) if os.path.exists(a.history) else []
     seen = {norm(h) for h in history}
     good, failures, log, caption, tags = [], [], [], None, None
@@ -154,13 +165,13 @@ def main():
         if caption is None: caption, tags = g.get("caption"), g.get("hashtags")
         cands = []
         for q in g.get("questions", []):
-            errs = validate(q)
+            errs = validate(q, current)
             if norm(q.get("text", "")) in seen or any(norm(q.get("text", "")) == norm(x["text"]) for x in good): errs.append("repeat")
             if errs: failures.append(f"{q.get('text')}: {'; '.join(errs)}"); log.append(dict(round=rnd, text=q.get("text"), ok=False, reason="; ".join(errs))); continue
             cands.append(q)
         with ThreadPoolExecutor(4) as ex: vs = list(ex.map(lambda q: verify_one(q, needs_source), cands))
         for q, v in zip(cands, vs):
-            ok, why = passes(q, v, needs_source)
+            ok, why = passes(q, v, needs_source, current)
             log.append(dict(round=rnd, text=q["text"], intended=q["answer"], ok=ok, reason=why, **v))
             if ok and len(good) < 5: good.append(dict(q, verification=v))
             elif not ok: failures.append(f"{q['text']}: {why}")

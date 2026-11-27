@@ -1,4 +1,4 @@
-# trigger: white background, easy-medium
+# trigger: special topic run
 name: daily-quiz
 on:
   schedule:
@@ -27,7 +27,7 @@ jobs:
       - name: Generate and verify quiz
         run: |
           if [ "${{ github.event_name }}" != "push" ]; then export QUIZ_RECORD=1; fi
-          python generate_quiz.py --out out
+          if [ -f special_topic.txt ]; then python generate_quiz.py --out out --topic "$(cat special_topic.txt)"; else python generate_quiz.py --out out; fi
       - name: Render video
         run: python make_video.py out/quiz.json out
       - name: Publish for review (GitHub release)
@@ -48,6 +48,7 @@ jobs:
           MAKE_YT_WEBHOOK: ${{ secrets.MAKE_YT_WEBHOOK }}
           EVENT: ${{ github.event_name }}
         run: |
+          if [ -f special_topic.txt ]; then echo "special run - YouTube is uploaded manually"; exit 0; fi
           if [ -z "$MAKE_YT_WEBHOOK" ]; then echo "MAKE_YT_WEBHOOK not set - skipping YouTube"; exit 0; fi
           D=$(date -u +%F); [ "$EVENT" = "push" ] && D="test-$D-${{ github.run_number }}"
           export VIDEO_URL="https://github.com/${{ github.repository }}/releases/download/quiz-$D/quiz.mp4"

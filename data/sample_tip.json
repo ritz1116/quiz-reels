@@ -1,0 +1,27 @@
+{
+  "title": "Turn messy notes into action items",
+  "sample": true,
+  "hook_words": [["Stop", [255,255,255]], ["typing", [255,255,255]], ["'summarize", [255,107,107]], ["this'", [255,107,107]], ["into", [255,255,255]], ["AI.", [255,255,255]]],
+  "voice": [
+    ["hook", "Stop typing 'summarize this' into AI."],
+    ["intro", "Copy this prompt instead."],
+    ["b1", "You get a three line summary."],
+    ["b2", "Five clear action items, with owners."],
+    ["b3", "And the one question everyone forgot."],
+    ["trick", "The trick? Tell the AI exactly what format you want."],
+    ["cta", "Save this, and follow for a new AI trick every day."]
+  ],
+  "prompt": [
+    "Act as an expert editor.",
+    "Turn my notes below into:",
+    "1. A 3-line summary",
+    "2. 5 action items with owners",
+    "3. One question nobody answered",
+    "",
+    "Notes: [paste your notes here]"
+  ],
+  "benefits": [["b1", "3-line summary"], ["b2", "5 action items + owners"], ["b3", "The question nobody asked"]],
+  "trick_words": [["Tell", [255,255,255]], ["AI", [255,196,61]], ["the", [255,255,255]], ["exact", [255,196,61]], ["format.", [255,255,255]]],
+  "caption": "Stop typing 'summarize this'. Copy this prompt instead and turn messy notes into action items in seconds. Save it for later!",
+  "hashtags": ["#ai", "#aitools", "#chatgpt", "#productivity", "#prompts"]
+}
