@@ -58,7 +58,8 @@ jobs:
           q = json.load(open("out/quiz.json"))
           title = f"{q['category']} Quiz: Can You Score 5/5? #Shorts"[:100]
           desc = q["caption"] + "\n\n" + " ".join(q.get("hashtags") or []) + "\n\nNew quiz every day - subscribe to QuizNova!"
-          print(json.dumps(dict(video_url=os.environ["VIDEO_URL"], title=title, description=desc, privacy=os.environ["PRIVACY"])))
+          ig = q["caption"] + "\n\nFollow @itsquiznova for a new quiz every day!\n\n" + " ".join(q.get("hashtags") or [])
+          print(json.dumps(dict(video_url=os.environ["VIDEO_URL"], title=title, description=desc, ig_caption=ig, privacy=os.environ["PRIVACY"])))
           PY
           curl -sS -m 120 -X POST -H "Content-Type: application/json" --data @payload.json "$MAKE_YT_WEBHOOK"; echo
       - name: Save history
