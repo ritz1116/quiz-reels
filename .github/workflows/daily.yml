@@ -1,4 +1,4 @@
-# trigger: first layout, pale blue, easy level
+# trigger: add YouTube upload via Make
 name: daily-quiz
 on:
   schedule:
@@ -43,6 +43,23 @@ jobs:
           PY
           gh release create "$TAG" out/quiz.mp4 out/quiz.json out/verification.json --title "$TAG" --notes-file out/notes.md
           echo "Video: https://github.com/${{ github.repository }}/releases/download/$TAG/quiz.mp4"
+      - name: Upload to YouTube (via Make)
+        env:
+          MAKE_YT_WEBHOOK: ${{ secrets.MAKE_YT_WEBHOOK }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ -z "$MAKE_YT_WEBHOOK" ]; then echo "MAKE_YT_WEBHOOK not set - skipping YouTube"; exit 0; fi
+          D=$(date -u +%F); [ "$EVENT" = "push" ] && D="test-$D-${{ github.run_number }}"
+          export VIDEO_URL="https://github.com/${{ github.repository }}/releases/download/quiz-$D/quiz.mp4"
+          if [ "$EVENT" = "push" ]; then export PRIVACY=private; else export PRIVACY=public; fi
+          python - <<'PY' > payload.json
+          import json, os
+          q = json.load(open("out/quiz.json"))
+          title = f"{q['category']} Quiz: Can You Score 5/5? #Shorts"[:100]
+          desc = q["caption"] + "\n\n" + " ".join(q.get("hashtags") or []) + "\n\nNew quiz every day - subscribe to QuizNova!"
+          print(json.dumps(dict(video_url=os.environ["VIDEO_URL"], title=title, description=desc, privacy=os.environ["PRIVACY"])))
+          PY
+          curl -sS -m 120 -X POST -H "Content-Type: application/json" --data @payload.json "$MAKE_YT_WEBHOOK"; echo
       - name: Save history
         if: github.event_name != 'push'
         run: |
