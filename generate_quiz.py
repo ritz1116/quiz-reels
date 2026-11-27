@@ -42,7 +42,9 @@ SPECIAL = [
     ("AI News", "recent artificial-intelligence news: model and product releases, company announcements, funding and partnership milestones, notable research results, new AI laws that were passed. Facts only, no opinions or hype. " + _C, True),
 ]
 CURRENT_SET = {t[0] for t in SPECIAL}
-def pick_topic(d): return TOPICS[d.toordinal() % len(TOPICS)]
+def pick_topic(d):
+    if d.weekday() == 6: return SPECIAL[1]  # Sunday: weekly current-affairs quiz (AI, Nvidia & cricket)
+    return TOPICS[d.toordinal() % len(TOPICS)]
 usage = dict(input=0, output=0, searches=0)
 client = None
 
@@ -194,7 +196,7 @@ def main():
     if len(good) < 5:
         print(f"FAILED: only {len(good)} verified questions", file=sys.stderr); sys.exit(1)
     final = finalize_order(good, f"{today}-{topic}")
-    quiz = dict(category=topic, title="Can you score 5/5?", questions=final, caption=(caption if caption and not any(c.isdigit() for c in caption) else f"{topic} quiz - how many did you get? Tell us in the comments!"),
+    quiz = dict(category=("Current Affairs" if topic == SPECIAL[1][0] else topic), title="Can you score 5/5?", questions=final, caption=(caption if caption and not any(c.isdigit() for c in caption) else f"{topic} quiz - how many did you get? Tell us in the comments!"),
                 hashtags=tags or ["#quiz", "#trivia"], meta=dict(date=str(today), model=MODEL))
     json.dump(quiz, open(os.path.join(a.out, "quiz.json"), "w"), indent=1, ensure_ascii=False)
     if os.environ.get("QUIZ_RECORD") == "1":
