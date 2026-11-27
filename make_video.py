@@ -17,7 +17,18 @@ MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model
 VOICE = os.environ.get("QUIZ_VOICE", "am_michael")
 TIGHT = os.environ.get("QUIZ_TIGHT") == "1"
 W, H, FPS, TSR = 1080, 1920, 30, 24000
-PAPER = (255, 255, 255); INK = (24, 28, 40); GREY = (110, 114, 124); RED = (214, 48, 48); GREEN = (24, 150, 84)
+# Visual themes rotate daily (same worksheet layout, different look). QUIZ_THEME=0..5 forces one.
+THEMES = [
+    dict(paper=(255, 255, 255), ink=(24, 28, 40), grey=(110, 114, 124), red=(214, 48, 48), green=(24, 150, 84), rule=(200, 200, 205), dial=(255, 255, 255), letters=False, serif=True),
+    dict(paper=(229, 241, 255), ink=(18, 34, 72), grey=(90, 108, 140), red=(37, 99, 235), green=(22, 150, 90), rule=(180, 200, 232), dial=(255, 255, 255), letters=True, serif=False),
+    dict(paper=(255, 247, 214), ink=(54, 40, 20), grey=(130, 112, 80), red=(214, 48, 48), green=(24, 150, 84), rule=(228, 212, 160), dial=(255, 252, 236), letters=False, serif=True),
+    dict(paper=(16, 22, 44), ink=(242, 246, 255), grey=(160, 172, 205), red=(255, 196, 61), green=(70, 220, 130), rule=(60, 72, 110), dial=(30, 40, 74), letters=True, serif=False),
+    dict(paper=(226, 246, 235), ink=(16, 52, 40), grey=(84, 120, 104), red=(224, 70, 70), green=(20, 140, 80), rule=(170, 214, 190), dial=(255, 255, 255), letters=False, serif=False),
+    dict(paper=(255, 236, 240), ink=(60, 24, 40), grey=(140, 100, 116), red=(200, 40, 90), green=(24, 150, 84), rule=(236, 190, 204), dial=(255, 250, 251), letters=True, serif=True),
+]
+import datetime as _dt
+TH = THEMES[int(os.environ["QUIZ_THEME"]) % len(THEMES)] if os.environ.get("QUIZ_THEME") else THEMES[_dt.date.today().toordinal() % len(THEMES)]
+PAPER, INK, GREY, RED, GREEN = TH["paper"], TH["ink"], TH["grey"], TH["red"], TH["green"]
 
 def ensure_models():
     os.makedirs(MODEL_DIR, exist_ok=True)
@@ -44,7 +55,7 @@ def narrate(quiz):
         add("question", q["text"], q=i); sil(0.2 if TIGHT else 0.3)
         ev.append(dict(kind="think", start=round(t[0], 3), end=round(t[0] + 2.0, 3), q=i)); sil(2.0)
         add("answer", f"The answer is {q['options'][q['answer']]}!", q=i); sil(0.6 if TIGHT else 1.1)
-    add("outro", "How many did you get? Comment your score!"); sil(0.7)
+    add("outro", "How many did you get? Comment your score, and subscribe for a new quiz every day!"); sil(0.7)
     return np.concatenate(chunks), ev, round(t[0], 3)
 
 # ---------------- worksheet visuals ----------------
@@ -87,14 +98,15 @@ class Worksheet:
         arr = np.full((ph, W, 3), PAPER, dtype=np.int16) + rng.integers(-3, 4, (ph, W, 1)).astype(np.int16)
         im = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)); d = ImageDraw.Draw(im)
         cat = quiz["category"].upper(); fs = 88
-        while font(SERIF, fs, 700).getlength(cat) > 940: fs -= 4
-        d.text((W // 2, 95), cat, font=font(SERIF, fs, 700), fill=INK, anchor="mm")
+        while font(SERIF if TH["serif"] else SANS, fs, 800 if not TH["serif"] else 700).getlength(cat) > 940: fs -= 4
+        d.text((W // 2, 95), cat, font=font(SERIF if TH["serif"] else SANS, fs, 800 if not TH["serif"] else 700), fill=INK, anchor="mm")
         d.text((W // 2, 185), quiz.get("title", "Can you score 5/5?"), font=font(SANS, 46, 500), fill=GREY, anchor="mm")
-        d.line([(70, 240), (W - 70, 240)], fill=(200, 200, 205), width=3)
+        d.line([(70, 240), (W - 70, 240)], fill=TH["rule"], width=3)
         for b in self.blk:
             for l, ly in b["qlines"]: d.text((70, ly), l, font=QF(), fill=INK)
             for o, oy in b["opts"]:
                 d.ellipse((74, oy + 6, 118, oy + 50), outline=INK, width=4)
+                if TH["letters"]: d.text((96, oy + 28), "ABC"[[x for x, _ in b["opts"]].index(o)], font=font(SANS, 30, 800), fill=INK, anchor="mm")
                 d.text((150, oy), o, font=OF(), fill=INK)
         self.page = im; maxs = ph - H
         self.keys = [(0.0, 0.0)]
@@ -151,7 +163,7 @@ class Worksheet:
         for e in self.ev:
             if e["kind"] == "think" and e["start"] <= t < e["end"]:
                 mid = self.blk[e["q"]]["opts"][1][1] - c + 36; cx, r = 900, 78; el = t - e["start"]
-                d.ellipse((cx - r, mid - r, cx + r, mid + r), fill=(255, 255, 255), outline=(210, 212, 218), width=10)
+                d.ellipse((cx - r, mid - r, cx + r, mid + r), fill=TH["dial"], outline=TH["rule"], width=10)
                 d.arc((cx - r, mid - r, cx + r, mid + r), -90, -90 + 360 * (1 - el / 2.0), fill=RED, width=12)
                 d.text((cx, mid - 4), "2" if el < 1 else "1", font=font(SANS, 92, 800), fill=INK, anchor="mm")
         return im

@@ -23,6 +23,12 @@ TOPICS = [
     ("Space", "planets, the Sun, Moon, stars, famous space missions. "+E, True),
     ("Human Body", "organs, bones, senses, health basics. "+E, True),
     ("Famous Firsts & Inventions", "who invented what, famous firsts, landmarks, world records that will not change. "+E, True),
+    ("Food & Drink", "world cuisines, ingredients, famous dishes, fruits and vegetables, kitchen basics. "+E, True),
+    ("Sports Basics", "rules, equipment, famous tournaments, Olympics and well-known sports facts that will not change. "+E, True),
+    ("Movies & Music", "famous films, animated movies, instruments, genres; facts only, no opinions. "+E, True),
+    ("Technology & Computers", "computer basics, the internet, famous tech inventions, everyday gadgets. "+E, True),
+    ("Mythology & Legends", "Greek, Roman, Norse and Indian myths, famous gods and heroes, well-known stories. "+E, True),
+    ("Landmarks & World Wonders", "famous buildings, monuments, bridges and wonders and where they are. "+E, True),
 ]
 # one subject per video; the subject changes every day
 # special topics: never in the daily rotation, only used with --topic
