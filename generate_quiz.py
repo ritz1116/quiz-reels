@@ -27,7 +27,14 @@ TOPICS = [
 # one subject per video; the subject changes every day
 # special topics: never in the daily rotation, only used with --topic
 CURRENT_AFFAIRS = "World Current Affairs"
-SPECIAL = [(CURRENT_AFFAIRS, "notable recent world events from roughly the last 8 weeks that you FIND VIA WEB SEARCH: international summits and agreements, sports finals and records, major awards, space and science milestones, technology and business milestones, cultural events. Easy to medium, neutral, factual.", True)]
+_C = "Easy to medium, neutral, factual, from roughly the last 8 weeks, FOUND VIA WEB SEARCH. "
+SPECIAL = [
+    (CURRENT_AFFAIRS, "notable recent world events: international summits and agreements, sports finals and records, major awards, space and science milestones, technology and business milestones, culture. " + _C, True),
+    ("Nvidia News", "recent Nvidia news: product and chip launches, keynotes, partnerships, earnings results and company milestones, data-centre and gaming announcements. Facts only, never investment advice or price predictions. " + _C, True),
+    ("Cricket News", "recent international and major-league cricket: series and tournament results, records, awards, retirements, squad announcements, auctions. Facts only, no controversies, no injuries. " + _C, True),
+    ("AI News", "recent artificial-intelligence news: model and product releases, company announcements, funding and partnership milestones, notable research results, new AI laws that were passed. Facts only, no opinions or hype. " + _C, True),
+]
+CURRENT_SET = {t[0] for t in SPECIAL}
 def pick_topic(d): return TOPICS[d.toordinal() % len(TOPICS)]
 usage = dict(input=0, output=0, searches=0)
 client = None
@@ -85,7 +92,7 @@ def validate(q, current=False):
 
 GEN_SYS = "You write simple, accurate multiple-choice quiz questions for short vertical videos. Reply with JSON only."
 def generate(topic, guidance, n, avoid, failures, want_caption):
-    cur = topic == CURRENT_AFFAIRS
+    cur = topic in CURRENT_SET
     p = f"""Write {n} multiple-choice questions for the category: {topic}.
 Style: {guidance}
 Rules:
@@ -154,7 +161,7 @@ def main():
     os.makedirs(a.out, exist_ok=True)
     today = datetime.date.today()
     topic, guidance, needs_source = (next(t for t in TOPICS + SPECIAL if t[0] == a.topic) if a.topic else pick_topic(today))
-    current = topic == CURRENT_AFFAIRS
+    current = topic in CURRENT_SET
     history = json.load(open(a.history)) if os.path.exists(a.history) else []
     seen = {norm(h) for h in history}
     good, failures, log, caption, tags = [], [], [], None, None
