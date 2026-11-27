@@ -1,4 +1,4 @@
-# trigger: special topic run
+# daily run
 name: daily-quiz
 on:
   schedule:
