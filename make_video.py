@@ -16,7 +16,7 @@ MODEL_DIR = os.environ.get("KOKORO_DIR", os.path.join(HERE, ".kokoro"))
 MODEL_URL = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
 VOICE = os.environ.get("QUIZ_VOICE", "am_michael")
 W, H, FPS, TSR = 1080, 1920, 30, 24000
-PAPER = (232, 242, 252); INK = (24, 28, 40); GREY = (110, 114, 124); RED = (214, 48, 48); GREEN = (24, 150, 84)
+PAPER = (255, 255, 255); INK = (24, 28, 40); GREY = (110, 114, 124); RED = (214, 48, 48); GREEN = (24, 150, 84)
 
 def ensure_models():
     os.makedirs(MODEL_DIR, exist_ok=True)

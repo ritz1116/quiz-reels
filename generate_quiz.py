@@ -11,7 +11,7 @@ import anthropic
 
 MODEL = os.environ.get("QUIZ_MODEL", "claude-sonnet-5-5")
 HERE = os.path.dirname(os.path.abspath(__file__))
-E="Difficulty: EASY. Simple, well-known facts that most school students and many adults already know; clear and not tricky. Wrong options must still be plausible (no silly options). ALL five questions must be about this ONE subject only."
+E="Difficulty: easy to medium. 3 easy questions (well-known facts) + 2 medium ones (a school student thinks a little, but still fair and clear). Wrong options must be plausible. ALL five questions must be about this ONE subject only."
 TOPICS = [
     ("Geography", "countries, capitals, oceans, continents, rivers, mountains, flags. "+E, True),
     ("English Vocabulary", "word meanings, opposites, synonyms, everyday words. Unambiguous, American English. "+E, False),
