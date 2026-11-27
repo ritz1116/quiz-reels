@@ -1,4 +1,4 @@
-# trigger: new design + medium difficulty
+# trigger: first layout, pale blue, easy level
 name: daily-quiz
 on:
   schedule:
