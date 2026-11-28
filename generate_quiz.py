@@ -49,6 +49,31 @@ def pick_topic(d):
     if str(d) in ONE_OFF: return next(t for t in SPECIAL if t[0] == ONE_OFF[str(d)])
     if d.weekday() == 6: return SPECIAL[1]  # Sunday: weekly current-affairs quiz (AI, Nvidia & cricket)
     return TOPICS[d.toordinal() % len(TOPICS)]
+def load_user_quiz(today, csv_text=None):
+    """If the weekly Google Sheet has 5 complete rows for today's date, use them (no API cost). Otherwise return None."""
+    import csv, io, urllib.request
+    try:
+        if csv_text is None:
+            url = open(os.path.join(HERE, "sheet_url.txt")).read().strip()
+            csv_text = urllib.request.urlopen(url, timeout=25).read().decode("utf-8-sig")
+        rows = [r for r in csv.reader(io.StringIO(csv_text))][1:]
+    except Exception as e:
+        print("sheet unavailable, auto-generating:", e); return None
+    mine = [r + [""] * 8 for r in rows if r and r[0].strip() == str(today)]
+    mine = [r for r in mine if any(c.strip() for c in r[3:8])]
+    if not mine: return None
+    qs, errs = [], []
+    for r in mine:
+        text, opts, ans = r[3].strip(), [c.strip() for c in r[4:7]], r[7].strip().upper()[:1]
+        q = dict(text=text, options=opts, answer="ABC".find(ans) if ans in ("A", "B", "C") else -1)
+        e = validate(q, True)
+        if e: errs.append(f"{text or '(blank)'}: {'; '.join(e)}")
+        qs.append(q)
+    if len(qs) != 5 or errs:
+        print("sheet rows for today are incomplete/invalid, auto-generating:", len(qs), errs); return None
+    topic = next((r[1].strip() for r in mine if r[1].strip()), "General Knowledge")
+    return topic, qs
+
 usage = dict(input=0, output=0, searches=0)
 client = None
 
@@ -192,6 +217,16 @@ def main():
     topic, guidance, needs_source = (next(t for t in TOPICS + SPECIAL if t[0] == a.topic) if a.topic else pick_topic(today))
     current = topic in CURRENT_SET
     history = json.load(open(a.history)) if os.path.exists(a.history) else []
+    mine = None if a.topic else load_user_quiz(today)
+    if mine:
+        utopic, uq = mine
+        quiz = dict(category=utopic, title="Can you score 5/5?", questions=uq, caption=f"{utopic} quiz - how many did you get? Tell us in the comments!",
+                    hashtags=["#quiz", "#trivia", "#generalknowledge", "#brainteaser", "#quiznova"], meta=dict(date=str(today), model="user-provided"))
+        json.dump(quiz, open(os.path.join(a.out, "quiz.json"), "w"), indent=1, ensure_ascii=False)
+        json.dump(dict(topic=utopic, date=str(today), verified=5, model="user-provided", usage=usage, log=[]), open(os.path.join(a.out, "verification.json"), "w"), indent=1)
+        if os.environ.get("QUIZ_RECORD") == "1":
+            json.dump((history + [q["text"] for q in uq])[-400:], open(a.history, "w"), indent=1, ensure_ascii=False)
+        print("OK user-provided questions for", today, "topic", utopic); return
     seen = {norm(h) for h in history}
     good, failures, log, caption, tags = [], [], [], None, None
     for rnd in range(1, 5):
