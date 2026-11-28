@@ -3,6 +3,7 @@ name: daily-quiz
 on:
   schedule:
     - cron: "17 2 * * *"   # ~07:47 IST every day (off the busy :00/:30 slots)
+    - cron: "43 5,8,11 * * *"   # backups: only run if today's video does not exist yet
   workflow_dispatch:
   push:
     paths: [".github/workflows/daily.yml"]
@@ -10,7 +11,20 @@ permissions:
   contents: write
 concurrency: daily-quiz
 jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          D=$(date -u +%F)
+          if [ "${{ github.event_name }}" = "schedule" ] && gh release view "quiz-$D" --repo "${{ github.repository }}" >/dev/null 2>&1; then echo "run=false" >> "$GITHUB_OUTPUT"; else echo "run=true" >> "$GITHUB_OUTPUT"; fi
   make:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
