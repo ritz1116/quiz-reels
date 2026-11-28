@@ -41,8 +41,12 @@ SPECIAL = [
     ("Cricket News", "recent international and major-league cricket: series and tournament results, records, awards, retirements, squad announcements, auctions. Facts only, no controversies, no injuries. " + _C, True),
     ("AI News", "recent artificial-intelligence news: model and product releases, company announcements, funding and partnership milestones, notable research results, new AI laws that were passed. Facts only, no opinions or hype. " + _C, True),
 ]
+SPECIAL.append(("Cricket Special", "ALL FIVE questions are about cricket. Exactly 3 of them are about Indian cricket players (their records, teams, roles, milestones), and one of those 3 must be about the young batter Vaibhav Suryavanshi (for example his Indian Premier League debut, his team, his record-breaking innings or his age-related records, only facts confirmed by reputable sources). The other 2 questions are about recent international or major-league cricket news. "+_C+"Every question must be easy to medium and unambiguous, with one clearly correct option. No injuries, controversies or opinions.", True))
 CURRENT_SET = {t[0] for t in SPECIAL}
+ONE_OFF = {"2026-11-29": "Cricket Special"}   # date -> SPECIAL topic name (overrides the normal rotation for that day)
+DISPLAY = {"Cricket Special": "Cricket"}
 def pick_topic(d):
+    if str(d) in ONE_OFF: return next(t for t in SPECIAL if t[0] == ONE_OFF[str(d)])
     if d.weekday() == 6: return SPECIAL[1]  # Sunday: weekly current-affairs quiz (AI, Nvidia & cricket)
     return TOPICS[d.toordinal() % len(TOPICS)]
 usage = dict(input=0, output=0, searches=0)
@@ -214,7 +218,7 @@ def main():
     if len(good) < 5:
         print(f"FAILED: only {len(good)} verified questions", file=sys.stderr); sys.exit(1)
     final = finalize_order(good, f"{today}-{topic}")
-    quiz = dict(category=("Current Affairs" if topic == SPECIAL[1][0] else topic), title="Can you score 5/5?", questions=final, caption=(caption if caption and not any(c.isdigit() for c in caption) else f"{topic} quiz - how many did you get? Tell us in the comments!"),
+    quiz = dict(category=DISPLAY.get(topic, "Current Affairs" if topic == SPECIAL[1][0] else topic), title="Can you score 5/5?", questions=final, caption=(caption if caption and not any(c.isdigit() for c in caption) else f"{topic} quiz - how many did you get? Tell us in the comments!"),
                 hashtags=tags or ["#quiz", "#trivia"], meta=dict(date=str(today), model=MODEL))
     json.dump(quiz, open(os.path.join(a.out, "quiz.json"), "w"), indent=1, ensure_ascii=False)
     if os.environ.get("QUIZ_RECORD") == "1":
