@@ -143,6 +143,22 @@ def verify_one(q, must_search):
     if src not in retrieved: src = retrieved[0] if retrieved else ""   # only accept sources that were really retrieved
     return dict(found=found, confidence=j.get("confidence", "low"), source=src, searches=n, notes=j.get("notes", ""), all_sources=retrieved[:3])
 
+BATCH_SYS = ("You are a strict fact-checker. You get several multiple-choice questions WITHOUT the intended answers. "
+             "Decide the correct option for each yourself. If a question is ambiguous, two options are defensible, or the premise is disputed, say so with answer null. "
+             'Reply with JSON only: {"results":[{"answer":"A"|"B"|"C"|null,"confidence":"high"|"medium"|"low","notes":"short"}]} in the same order as the questions.')
+def verify_batch(cands):
+    """Cheap single blind check for stable-fact quizzes (no web search). Current-affairs quizzes still use verify_one with search."""
+    L = "ABC"
+    body = "\n\n".join(f"{i+1}. {q['text']}\n" + "\n".join(f"{L[j]}) {o}" for j, o in enumerate(q["options"])) for i, q in enumerate(cands))
+    r, _, _ = call(BATCH_SYS, body, max_tokens=1500)
+    res = extract_json(text_of(r)).get("results", [])
+    out = []
+    for i in range(len(cands)):
+        j = res[i] if i < len(res) else {}
+        a = j.get("answer")
+        out.append(dict(found=L.index(a) if a in ("A", "B", "C") else None, confidence=j.get("confidence", "low"), source="", searches=0, notes=j.get("notes", ""), all_sources=[]))
+    return out
+
 def passes(q, v, needs_source, current=False):
     if v["found"] != q["answer"]: return False, f"verifier chose {v['found']} but intended {q['answer']}: {v['notes']}"
     if v["confidence"] == "low" or (current and v["confidence"] != "high"): return False, f"verifier confidence {v['confidence']}"
@@ -185,9 +201,11 @@ def main():
             if norm(q.get("text", "")) in seen or any(norm(q.get("text", "")) == norm(x["text"]) for x in good): errs.append("repeat")
             if errs: failures.append(f"{q.get('text')}: {'; '.join(errs)}"); log.append(dict(round=rnd, text=q.get("text"), ok=False, reason="; ".join(errs))); continue
             cands.append(q)
-        with ThreadPoolExecutor(4) as ex: vs = list(ex.map(lambda q: verify_one(q, needs_source), cands))
+        if current:
+            with ThreadPoolExecutor(4) as ex: vs = list(ex.map(lambda q: verify_one(q, needs_source), cands))
+        else: vs = verify_batch(cands) if cands else []
         for q, v in zip(cands, vs):
-            ok, why = passes(q, v, needs_source, current)
+            ok, why = passes(q, v, needs_source and current, current)
             log.append(dict(round=rnd, text=q["text"], intended=q["answer"], ok=ok, reason=why, **v))
             if ok and len(good) < 5: good.append(dict(q, verification=v))
             elif not ok: failures.append(f"{q['text']}: {why}")
